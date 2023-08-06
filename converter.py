@@ -81,16 +81,16 @@ def openFile():
     plt.title("Synthèse des Résultats de l’Audit des Vulnérabilités", fontsize=15, color="m")
     plt.bar(x, name_risk, width=0.4, color=c)
     vulbarImg_path = f"./images/vulbarImg_{gene}.png"
-    plt.savefig(vulbarImg_path)
+    plt.savefig(vulbarImg_path,bbox_inches='tight')
 
     # vulnerability pie image
-    plt.figure(figsize=(6.4, 3.5))
+    plt.figure(figsize=(6.4, 4))
     x1 = [(x * 100) / sum(name_risk) for x in name_risk]
     plt.pie(x1, labels=x, colors=c, autopct="%0.2f%%", shadow=True, textprops={"fontsize": 12}, pctdistance=0.8)
     plt.pie([1], colors="w", radius=0.63)
     plt.title("Détails de Scan", fontsize=17, color="m")
     vulpieImg_path = f"./images/vulpieImg_{gene}.png"
-    plt.savefig(vulpieImg_path)
+    plt.savefig(vulpieImg_path,bbox_inches='tight')
 
     # Top10 impacted hosts
     top_impacted_hosts = csvRows.groupby("Host").Name.unique()
@@ -103,7 +103,7 @@ def openFile():
     list_host_risk = host_risk.groupby("RiskFactor").apply(lambda df: df.set_index("Host")["Name"].to_dict()).to_dict()
 
     # host_vuls bar image
-    plt.figure(figsize=(6.4, 4.5))
+    plt.figure()
 
     y_axis = []
     y_labels = []
@@ -122,7 +122,7 @@ def openFile():
     plt.legend()
     plt.title("Scan Vulnérabilités serveurs", fontsize=15, color="m")
     host_vul_barImg = f"./images/host_vul_barImg_{gene}.png"
-    plt.savefig(host_vul_barImg)
+    plt.savefig(host_vul_barImg,bbox_inches='tight')
 
     # critical/High vulnerabilities
 
@@ -137,6 +137,9 @@ def openFile():
     risk_vul.Cvss3.replace(-1, 'non-fourni', inplace=True)
     risk_vul["RiskFactor"] = risk_vul["RiskFactor"].apply(lambda risk: risk_mappeur[risk])
 
+    # working only on the Top100
+    risk_vul = risk_vul.iloc[:100]
+
     # Exploitation treatment
 
     risk_vul.Metasploit.fillna(False, inplace=True)
@@ -147,11 +150,33 @@ def openFile():
     risk_vul["exploited"] = exploi_state
     risk_vul["exploitedby"] = exploi_details
 
+    # Translation
+    # Keep in mind that this is the cause of any latency since we are connecting to an api,
+    # if you want to ignore the translation just comment the two mentioned lines
+    translator = Translator()
+    source_lang = "en"
+    target_lang = 'fr'
+
+    list_to_be_translated = risk_vul.loc[:, ["Description", "Synopsis", "See"]]
+    list_to_be_translated = list_to_be_translated.stack().tolist()
+
+    # Those are the two lines to be commented if we don't want the translation and would like to speed up the generation
+    list_to_be_translated = translator.translate(list_to_be_translated, src=source_lang, dest=target_lang)
+    list_to_be_translated = [item.text for item in list_to_be_translated]
+    # End the comment here
+
+    list_to_be_translated = [[list_to_be_translated[3 * j + i] for j in range(len(list_to_be_translated) // 3)] for i in
+                             range(3)]
+    list_to_be_translated = pd.DataFrame({"Description": list_to_be_translated[0], "Synopsis": list_to_be_translated[1],
+                                          "See": list_to_be_translated[2]})
+
+    risk_vul[["Description", "Synopsis", "See"]] = list_to_be_translated[["Description", "Synopsis", "See"]]
+
     # Top10 of risk_vul
     top10risk = risk_vul.iloc[:10].to_dict('records')
 
     # Top100 of risk_vul
-    top100risk = risk_vul.iloc[:100].to_dict('records')
+    top100risk = risk_vul.to_dict('records')
 
     todayStr = dt.datetime.now().strftime("%d-%b-%Y")
 
@@ -175,7 +200,7 @@ def openFile():
 
 
 window = Tk()
-window.title("Welcome to Nessus Rapport Generator")
+window.title("Welcome Nessus Rapport Generator")
 window.geometry("500x50")
 button = Button(text="Click Here", command=openFile, width=200, height=50).pack()
 window.mainloop()
