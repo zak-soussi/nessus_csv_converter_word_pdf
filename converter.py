@@ -6,7 +6,11 @@ from docxtpl import DocxTemplate, InlineImage
 import pandas as pd
 import random
 from googletrans import Translator
+import requests
+from bs4 import BeautifulSoup
+import threading
 
+# global mapping objects
 risk_mappeur = {
     "Critical": 'Critique',
     "High": "Elevée",
@@ -21,19 +25,57 @@ color_mappeur = {
     "Faible": "green",
     "non-fourni": "gray"
 }
+scrappeur_AV = {
+    'N': "Réseau",
+    'A': "Contigu",
+    'L': "Local",
+    'P': "Physique",
+    'R': "Rien"
+}
+scrappeur_others = {
+    'N': 'Rien',
+    "P": "Partielle",
+    'M': 'Moyenne',
+    'L': "Faible",
+    'H': "Elevée",
+    "R": "Requis",
+    "U": "Inchangé",
+    "C": "Modifié"
+}
 
-# this is going to be used to check if a it's possible to exploit a certain vulnerability
-# look for the Exploitation treatment for further details
-exploi_state = []
-exploi_details = []
+# Those lists are going to be used in the exploitation function to scrap web and check for vul exploitation
+exploitation_cols = ["exploited", "exploitedby"]
+scrapped_cols = ["AV", "AC", "PR", "UI", "S", "C", "I", "A"]
 
 # random generator until creating the form
 gene = random.randint(1, 1000)
 
+# This is going to be used for the web scraping module
+scrapped = {}
+link = "https://www.tenable.com/plugins/nessus/"
 
+
+def fn_scrappeur(plugin_list):
+    for plugin in plugin_list:
+        req = requests.get(link + str(plugin))
+        soup = BeautifulSoup(req.text, "html.parser")
+        element = soup.find_all('p')
+        element = [item.text for item in element if ("Vector" in item.text) & ("AV" in item.text)]
+        element.sort(key=len, reverse=True)
+        data_dict = {}
+        if element:
+            components = element[0].split('/')
+            components.pop(0)
+            for component in components:
+                key, value = component.split(':')
+                data_dict[key] = value
+        scrapped[plugin] = data_dict
+
+
+# This is going to be used for web scraping and vul exploitation
 def exploitation(row):
     if row.Metasploit | row.CANVAS | row.Core:
-        exploi_state.append("Vrai")
+        row.exploited = "Vrai"
         new = []
         if row.Metasploit:
             new.append("Metasploit")
@@ -41,14 +83,25 @@ def exploitation(row):
             new.append("CANVAS")
         if row.Core:
             new.append("Core")
-        exploi_details.append('/'.join(new))
+        row.exploitedby = '/'.join(new)
     else:
-        exploi_state.append("Faux")
-        exploi_details.append("Rien")
+        row.exploited = "Faux"
+        row.exploitedby = "Rien"
+
+    row.AV = scrappeur_AV[scrapped[row.PlugId].get("AV", "R")]
+    row.AC = scrappeur_others[scrapped[row.PlugId].get("AC", "N")]
+    row.PR = scrappeur_others[scrapped[row.PlugId].get("PR", "N")]
+    row.UI = scrappeur_others[scrapped[row.PlugId].get("UI", "N")]
+    row.S = scrappeur_others[scrapped[row.PlugId].get("S", "N")]
+    row.C = scrappeur_others[scrapped[row.PlugId].get("C", "N")]
+    row.I = scrappeur_others[scrapped[row.PlugId].get("I", "N")]
+    row.A = scrappeur_others[scrapped[row.PlugId].get("A", "N")]
+
+    return row
 
 
 def openFile():
-    doc = DocxTemplate("./template_data/template.docx")
+    doc = DocxTemplate("./template_data/template1.docx")
 
     filename = filedialog.askopenfilename(initialdir=".", title="Select a csv File",
                                           filetypes=(("csv files", "*.csv"),))
@@ -81,7 +134,7 @@ def openFile():
     plt.title("Synthèse des Résultats de l’Audit des Vulnérabilités", fontsize=15, color="m")
     plt.bar(x, name_risk, width=0.4, color=c)
     vulbarImg_path = f"./images/vulbarImg_{gene}.png"
-    plt.savefig(vulbarImg_path,bbox_inches='tight')
+    plt.savefig(vulbarImg_path, bbox_inches='tight')
 
     # vulnerability pie image
     plt.figure(figsize=(6.4, 4))
@@ -90,7 +143,7 @@ def openFile():
     plt.pie([1], colors="w", radius=0.63)
     plt.title("Détails de Scan", fontsize=17, color="m")
     vulpieImg_path = f"./images/vulpieImg_{gene}.png"
-    plt.savefig(vulpieImg_path,bbox_inches='tight')
+    plt.savefig(vulpieImg_path, bbox_inches='tight')
 
     # Top10 impacted hosts
     top_impacted_hosts = csvRows.groupby("Host").Name.unique()
@@ -122,7 +175,7 @@ def openFile():
     plt.legend()
     plt.title("Scan Vulnérabilités serveurs", fontsize=15, color="m")
     host_vul_barImg = f"./images/host_vul_barImg_{gene}.png"
-    plt.savefig(host_vul_barImg,bbox_inches='tight')
+    plt.savefig(host_vul_barImg, bbox_inches='tight')
 
     # critical/High vulnerabilities
 
@@ -140,16 +193,6 @@ def openFile():
     # working only on the Top100
     risk_vul = risk_vul.iloc[:100]
 
-    # Exploitation treatment
-
-    risk_vul.Metasploit.fillna(False, inplace=True)
-    risk_vul.CANVAS.fillna(False, inplace=True)
-    risk_vul.Core.fillna(False, inplace=True)
-
-    risk_vul.apply(exploitation, axis='columns')
-    risk_vul["exploited"] = exploi_state
-    risk_vul["exploitedby"] = exploi_details
-
     # Translation
     # Keep in mind that this is the cause of any latency since we are connecting to an api,
     # if you want to ignore the translation just comment the two mentioned lines
@@ -157,7 +200,7 @@ def openFile():
     source_lang = "en"
     target_lang = 'fr'
 
-    list_to_be_translated = risk_vul.loc[:, ["Description", "Synopsis", "See"]]
+    list_to_be_translated = risk_vul.loc[:, ["Description", "Synopsis", "Solution"]]
     list_to_be_translated = list_to_be_translated.stack().tolist()
 
     # Those are the two lines to be commented if we don't want the translation and would like to speed up the generation
@@ -168,9 +211,46 @@ def openFile():
     list_to_be_translated = [[list_to_be_translated[3 * j + i] for j in range(len(list_to_be_translated) // 3)] for i in
                              range(3)]
     list_to_be_translated = pd.DataFrame({"Description": list_to_be_translated[0], "Synopsis": list_to_be_translated[1],
-                                          "See": list_to_be_translated[2]})
+                                          "Solution": list_to_be_translated[2]})
 
-    risk_vul[["Description", "Synopsis", "See"]] = list_to_be_translated[["Description", "Synopsis", "See"]]
+    risk_vul[["Description", "Synopsis", "Solution"]] = list_to_be_translated[["Description", "Synopsis", "Solution"]]
+
+    # web_scrapping and multithreading
+
+    risk_vul["PlugId"] = risk_vul["PlugId"].astype(int)
+    plugin_list = risk_vul["PlugId"].unique()
+
+    # The number of threads
+    nbr_threats = 4
+
+    plugin_lists = [plugin_list[i * (len(plugin_list) // nbr_threats): (i + 1) * (len(plugin_list) // nbr_threats)] for
+                    i in range(nbr_threats - 1)]
+    plugin_lists.append(plugin_list[(nbr_threats - 1) * (len(plugin_list) // nbr_threats):])
+
+    threads = []
+    for plugin_list in plugin_lists:
+        th = threading.Thread(target=fn_scrappeur, args=(plugin_list,))
+        threads.append(th)
+
+    for item in threads:
+        item.start()
+
+    for item in threads:
+        item.join()
+
+    for scrapped_col in scrapped_cols:
+        risk_vul[scrapped_col] = None
+
+    # Exploitation treatment
+
+    risk_vul.Metasploit.fillna(False, inplace=True)
+    risk_vul.CANVAS.fillna(False, inplace=True)
+    risk_vul.Core.fillna(False, inplace=True)
+
+    for exploitation_col in exploitation_cols:
+        risk_vul[exploitation_col] = None
+
+    risk_vul = risk_vul.apply(exploitation, axis='columns')
 
     # Top10 of risk_vul
     top10risk = risk_vul.iloc[:10].to_dict('records')
@@ -200,7 +280,7 @@ def openFile():
 
 
 window = Tk()
-window.title("Welcome Nessus Rapport Generator")
+window.title("Welcome to Nessus Rapport Generator")
 window.geometry("500x50")
 button = Button(text="Click Here", command=openFile, width=200, height=50).pack()
 window.mainloop()
