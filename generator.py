@@ -1,6 +1,4 @@
 import datetime as dt
-from tkinter import filedialog
-from tkinter import *
 import matplotlib.pyplot as plt
 from docxtpl import DocxTemplate, InlineImage
 import pandas as pd
@@ -9,6 +7,7 @@ from googletrans import Translator
 import requests
 from bs4 import BeautifulSoup
 import threading
+from PIL import Image
 
 # global mapping objects
 risk_mappeur = {
@@ -100,12 +99,9 @@ def exploitation(row):
     return row
 
 
-def openFile():
-    doc = DocxTemplate("./template_data/template1.docx")
-
-    filename = filedialog.askopenfilename(initialdir=".", title="Select a csv File",
-                                          filetypes=(("csv files", "*.csv"),))
-    csvRows = pd.read_csv(filename)
+def generator(csv_path, society_name, image_path):
+    doc = DocxTemplate("./template_data/template.docx")
+    csvRows = pd.read_csv(csv_path)
     csvRows = csvRows.dropna(how='all')
     csvRows = csvRows.rename(
         columns={"CVSS v2.0 Base Score": "Cvss2", "Plugin ID": "PlugId", "See Also": "See", "Plugin Output": "PlugOut",
@@ -260,11 +256,29 @@ def openFile():
 
     todayStr = dt.datetime.now().strftime("%d-%b-%Y")
 
+    # Displaying society's logo
+    if not image_path:
+        image_path = "./logo/defaultlogo.png"
+
+    img = Image.open(image_path)
+    img = img.resize((340, 340), Image.ANTIALIAS)
+    image_path = f"./logo/societylogo_{gene}.png"
+    img.save(image_path)
+
+    # Creating a thumbnail of the logo
+    img = Image.open(image_path)
+    img.thumbnail((150, 50))
+    thumbnail_path = f"./logo/thumbnail_{gene}.png"
+    img.save(thumbnail_path)
+
     # create context to pass data to template
     context = {
+        "society_name": society_name,
         "gen_date": todayStr,
         "csvRows10": top10risk,
         "csvRows100": top100risk,
+        "society_logo": InlineImage(doc, image_path),
+        "society_thumbnail": InlineImage(doc, thumbnail_path),
         'vulbarImg': InlineImage(doc, vulbarImg_path),
         'vulpieImg': InlineImage(doc, vulpieImg_path),
         'host_vul_barImg': InlineImage(doc, host_vul_barImg)
@@ -272,15 +286,5 @@ def openFile():
     doc.render(context)
 
     # save the document object as a word file
-    reportWordPath = f'./rapports/new_rapport_{todayStr}_{gene}.docx'
+    reportWordPath = f'./rapports/{society_name}_{gene}.docx'
     doc.save(reportWordPath)
-
-    # close the window when the function finishes its work
-    window.destroy()
-
-
-window = Tk()
-window.title("Welcome to Nessus Rapport Generator")
-window.geometry("500x50")
-button = Button(text="Click Here", command=openFile, width=200, height=50).pack()
-window.mainloop()
