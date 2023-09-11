@@ -1,7 +1,7 @@
 from tkinter import *
 from tkinter import filedialog
 from PIL import Image, ImageTk
-from ..generator import generator
+from generator import generator
 
 image_path = None
 csv_path = None
