@@ -1,0 +1,49 @@
+{% extends "structure.html" %}
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card text-white bg-dark mb-3">
+                <div class="card-body">
+                    <h3 class="text-center">Generate Your Rapport</h3>
+                    <form id="myForm" onsubmit="return disableButton()" action="/download" method="POST"
+                          enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="society_name">Society Name<span class="text-danger">*</span></label>
+                            <input type="text" id="society_name" name="society_name"
+                                   class="form-control" placeholder="Enter the society's name" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="csv_file">Select Your CSV File<span class="text-danger">*</span></label>
+                            <input type="file" class="form-control-file" id="csv_file" name="csv_file" accept=".csv"
+                                   required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="society_logo">Society Logo</label>
+                            <input type="file" class="form-control-file" id="society_logo" name="society_logo"
+                                   accept=".png ,.jpg ,.jpeg">
+                        </div>
+
+                        <div class="text-center">
+                            <button id="myButton" type="submit" class="btn btn-primary">
+                                Convert
+                            </button>
+
+                            <script>
+                                function disableButton() {
+                                    document.getElementById('myButton').disabled = true;
+                                    return true;
+                                }
+                            </script>
+
+
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{%endblock%}

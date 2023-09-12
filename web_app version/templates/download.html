@@ -1,0 +1,22 @@
+{% extends "structure.html" %}
+{% block content %}
+
+<div class="container py-5 ">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="text-center">Rapport Generated Successfully</h3>
+                    <p class="text-center">Your rapport has been generated successfully. Click the button below to
+                        download it.</p>
+                    <div class="text-center">
+                        <a href="{{ url_for('download_file', filename=generated_rapport) }}" class="btn btn-primary">Download
+                            Rapport</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{%endblock%}
