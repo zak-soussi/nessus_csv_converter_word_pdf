@@ -1,0 +1,1 @@
+In this folder , you will get the generated output in its docx and pdf format
