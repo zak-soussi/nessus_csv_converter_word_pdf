@@ -1,7 +1,9 @@
+import shutil
 from tkinter import *
 from tkinter import filedialog
 from PIL import Image, ImageTk
 from generator import generator
+import random, os
 
 image_path = None
 csv_path = None
@@ -41,6 +43,11 @@ def submit_form():
 
     if society_name and csv_path:
 
+        gen = random.randint(1, 2000)
+        # create the folder that will contain all the necessary files to generate the rapport
+        UPLOAD_FOLDER = f'./files_to_use/rapport_{gen}'
+        os.mkdir(UPLOAD_FOLDER)
+
         # Create the generation window
         generation_window = Toplevel(root)
         generation_window.title("Generation in progress")
@@ -54,10 +61,11 @@ def submit_form():
         clarification_label.pack(pady=30)
 
         generation_window.after(10000, lambda: just_wait(generation_window))
-        #Generation
-        generator(csv_path, society_name, image_path)
+        # Generation
+        generator(csv_path, society_name, image_path , UPLOAD_FOLDER , gen)
 
-        #End of generation
+        # End of generation
+        shutil.rmtree(UPLOAD_FOLDER)
         required_fields.config(fg="black")
         csv_path = None
         csv_entry.configure(state="normal")

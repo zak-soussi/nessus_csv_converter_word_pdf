@@ -2,7 +2,6 @@ import datetime as dt
 import matplotlib.pyplot as plt
 from docxtpl import DocxTemplate, InlineImage
 import pandas as pd
-import random
 from googletrans import Translator
 import requests
 from bs4 import BeautifulSoup
@@ -45,9 +44,6 @@ scrappeur_others = {
 # Those lists are going to be used in the exploitation function to scrap web and check for vul exploitation
 exploitation_cols = ["exploited", "exploitedby"]
 scrapped_cols = ["AV", "AC", "PR", "UI", "S", "C", "I", "A"]
-
-# random generator until creating the form
-gene = random.randint(1, 1000)
 
 # This is going to be used for the web scraping module
 scrapped = {}
@@ -99,8 +95,8 @@ def exploitation(row):
     return row
 
 
-def generator(csv_path, society_name, image_path):
-    doc = DocxTemplate("./template_data/template.docx")
+def generator(csv_path, society_name, image_path, UPLOAD_FOLDER, gen):
+    doc = DocxTemplate("./static/template.docx")
     csvRows = pd.read_csv(csv_path)
     csvRows = csvRows.dropna(how='all')
     csvRows = csvRows.rename(
@@ -129,7 +125,7 @@ def generator(csv_path, society_name, image_path):
     plt.ylabel("Nbr", fontsize=12, labelpad=10)
     plt.title("Synthèse des Résultats de l’Audit des Vulnérabilités", fontsize=15, color="m")
     plt.bar(x, name_risk, width=0.4, color=c)
-    vulbarImg_path = f"./images/vulbarImg_{gene}.png"
+    vulbarImg_path = f"{UPLOAD_FOLDER}/vulbarImg.png"
     plt.savefig(vulbarImg_path, bbox_inches='tight')
 
     # vulnerability pie image
@@ -138,7 +134,7 @@ def generator(csv_path, society_name, image_path):
     plt.pie(x1, labels=x, colors=c, autopct="%0.2f%%", shadow=True, textprops={"fontsize": 12}, pctdistance=0.8)
     plt.pie([1], colors="w", radius=0.63)
     plt.title("Détails de Scan", fontsize=17, color="m")
-    vulpieImg_path = f"./images/vulpieImg_{gene}.png"
+    vulpieImg_path = f"{UPLOAD_FOLDER}/vulpieImg.png"
     plt.savefig(vulpieImg_path, bbox_inches='tight')
 
     # Top10 impacted hosts
@@ -170,7 +166,7 @@ def generator(csv_path, society_name, image_path):
 
     plt.legend()
     plt.title("Scan Vulnérabilités serveurs", fontsize=15, color="m")
-    host_vul_barImg = f"./images/host_vul_barImg_{gene}.png"
+    host_vul_barImg = f"{UPLOAD_FOLDER}/host_vul_barImg.png"
     plt.savefig(host_vul_barImg, bbox_inches='tight')
 
     # critical/High vulnerabilities
@@ -258,17 +254,17 @@ def generator(csv_path, society_name, image_path):
 
     # Displaying society's logo
     if not image_path:
-        image_path = "./logo/defaultlogo.png"
+        image_path = "./static/defaultlogo.png"
 
     img = Image.open(image_path)
     img = img.resize((340, 340), Image.ANTIALIAS)
-    image_path = f"./logo/societylogo_{gene}.png"
+    image_path = f"{UPLOAD_FOLDER}/societylogo.png"
     img.save(image_path)
 
     # Creating a thumbnail of the logo
     img = Image.open(image_path)
     img.thumbnail((150, 50))
-    thumbnail_path = f"./logo/thumbnail_{gene}.png"
+    thumbnail_path = f"{UPLOAD_FOLDER}/thumbnail.png"
     img.save(thumbnail_path)
 
     # create context to pass data to template
@@ -286,5 +282,5 @@ def generator(csv_path, society_name, image_path):
     doc.render(context)
 
     # save the document object as a word file
-    reportWordPath = f'./rapports/{society_name}_{gene}.docx'
+    reportWordPath = f'./rapports/{society_name}_{gen}.docx'
     doc.save(reportWordPath)

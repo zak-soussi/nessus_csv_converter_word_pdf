@@ -1,4 +1,6 @@
-import sys
+import os, sys, random
+import shutil
+
 from generator import generator
 
 society_name = None
@@ -45,5 +47,10 @@ else:
         elif name_count > 1:
             print("You have to provide only one society name")
         else:
-            generator(csv_path, society_name, image_path)
+            gen = random.randint(1, 2000)
+            # create the folder that will contain all the necessary files to generate the rapport
+            UPLOAD_FOLDER = f'./files_to_use/rapport_{gen}'
+            os.mkdir(UPLOAD_FOLDER)
+            generator(csv_path, society_name, image_path, UPLOAD_FOLDER, gen)
+            shutil.rmtree(UPLOAD_FOLDER)
             print("The rapport has been generated successfully , you can find it in the rapports folder")
